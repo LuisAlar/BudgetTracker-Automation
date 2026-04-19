@@ -1,0 +1,22 @@
+# Mac/Linux
+.DS_Store
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment secrets
+local.settings.json
+
+# Compilation
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log

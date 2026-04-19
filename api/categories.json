@@ -1,0 +1,57 @@
+{
+    "Groceries": [
+        "Trader Joe",
+        "Kroger",
+        "Safeway",
+        "Whole Foods",
+        "Ralphs",
+        "Target",
+        "Aldi"
+    ],
+    "Gas": [
+        "Shell",
+        "Chevron",
+        "Arco",
+        "Exxon",
+        "7-Eleven",
+        "Arco",
+        "Speedway"
+    ],
+    "Subscriptions": [
+        "Spotify",
+        "Netflix",
+        "Hulu",
+        "Gym",
+        "Adobe",
+        "Prime Tracker"
+    ],
+    "Dining Out": [
+        "Chipotle",
+        "McDonalds",
+        "In-N-Out",
+        "Starbucks",
+        "Cava",
+        "Sweetgreen"
+    ],
+    "plants": [
+        "zelle",
+        "venmo",
+        "cashapp",
+        "plant"
+    ],
+    "Raves": [
+        "Insomniac",
+        "Ticketmaster",
+        "Eventbrite",
+        "Dice"
+    ],
+    "Simulated Housing": [
+        "Rent",
+        "Landlord",
+        "Property"
+    ],
+    "Base Essentials": [
+        "CVS",
+        "Walgreens"
+    ]
+}
