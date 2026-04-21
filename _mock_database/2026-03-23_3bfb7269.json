@@ -1,8 +1,8 @@
-{
-    "transaction_id": "3bfb7269-d294-45be-bfc5-ad473b11194a",
-    "amount": 94.66,
-    "merchant": "Amazon",
-    "category": "Groceries",
-    "date_logged": "2026-03-23T16:54:14Z",
-    "notes": ""
+﻿{
+    "transaction_id":  "3bfb7269-d294-45be-bfc5-ad473b11194a",
+    "amount":  94.66,
+    "merchant":  "Amazon",
+    "category":  "Groceries",
+    "date_logged":  "2026-04-21T18:45:00Z",
+    "notes":  ""
 }

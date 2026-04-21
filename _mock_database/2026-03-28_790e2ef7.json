@@ -1,8 +1,8 @@
-{
-    "transaction_id": "790e2ef7-3708-4350-a1ae-c93d31abbea2",
-    "amount": 35.23,
-    "merchant": "zelle",
-    "category": "Gas",
-    "date_logged": "2026-03-28T16:53:44Z",
-    "notes": ""
+﻿{
+    "transaction_id":  "790e2ef7-3708-4350-a1ae-c93d31abbea2",
+    "amount":  35.23,
+    "merchant":  "zelle",
+    "category":  "Gas",
+    "date_logged":  "2026-04-24T11:00:00Z",
+    "notes":  ""
 }

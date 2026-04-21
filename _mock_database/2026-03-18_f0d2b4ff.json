@@ -1,8 +1,8 @@
-{
-    "transaction_id": "f0d2b4ff-dd16-412b-aa0a-b4be52ea8177",
-    "amount": 26.67,
-    "merchant": "Insomniac",
-    "category": "Simulated Housing",
-    "date_logged": "2026-03-18T16:54:14Z",
-    "notes": ""
+﻿{
+    "transaction_id":  "f0d2b4ff-dd16-412b-aa0a-b4be52ea8177",
+    "amount":  26.67,
+    "merchant":  "Insomniac",
+    "category":  "Simulated Housing",
+    "date_logged":  "2026-04-21T12:30:00Z",
+    "notes":  ""
 }

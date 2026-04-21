@@ -1,8 +1,8 @@
-{
-    "transaction_id": "4522bc9d-22b3-465f-a2cd-405c58f2c144",
-    "amount": 24.92,
-    "merchant": "Chipotle",
-    "category": "Groceries",
-    "date_logged": "2026-03-26T16:53:44Z",
-    "notes": ""
+﻿{
+    "transaction_id":  "4522bc9d-22b3-465f-a2cd-405c58f2c144",
+    "amount":  24.92,
+    "merchant":  "Chipotle",
+    "category":  "Groceries",
+    "date_logged":  "2026-04-23T10:00:00Z",
+    "notes":  ""
 }

@@ -17,24 +17,22 @@ export class BudgetView extends ItemView {
     }
 
     getDisplayText() {
-        return "Budget Dashboard"; // The title on the tab
+        return "Budget Dashboard";
     }
 
     async onOpen() {
         const container = this.contentEl;
         container.empty();
 
-        // Create a React root and render our component into it
         this.root = createRoot(container);
         this.root.render(
             <React.StrictMode>
-                <BudgetDashboard />
+                <BudgetDashboard app={this.app} />
             </React.StrictMode>
         );
     }
 
     async onClose() {
-        // Unmount React when the pane is closed to prevent memory leaks
         this.root?.unmount();
     }
 }

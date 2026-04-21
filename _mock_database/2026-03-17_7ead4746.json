@@ -1,8 +1,8 @@
-{
-    "transaction_id": "7ead4746-218a-4221-a54d-c9df95fbedb6",
-    "amount": 71.48,
-    "merchant": "CVS",
-    "category": "Raves",
-    "date_logged": "2026-03-17T16:54:14Z",
-    "notes": ""
+﻿{
+    "transaction_id":  "7ead4746-218a-4221-a54d-c9df95fbedb6",
+    "amount":  71.48,
+    "merchant":  "CVS",
+    "category":  "Raves",
+    "date_logged":  "2026-04-21T09:15:00Z",
+    "notes":  ""
 }
