@@ -1,8 +1,8 @@
 import azure.functions as func
 import json
 import logging
-import re
 import os
+import extractor
 
 app = func.FunctionApp()
 
@@ -19,16 +19,11 @@ def parse_email(req: func.HttpRequest) -> func.HttpResponse:
     if not email_body:
          return func.HttpResponse("Missing 'body' string in payload", status_code=400)
 
-    # 1. Regex Extraction (Assuming standard Bank of America email format)
-    # Example: "... transaction of $46.50 was made at CHIPOTLE MEXICAN GRILL on 05/10/2026."
-    amount_match = re.search(r'\$([0-9]+\.[0-9]{2})', email_body)
-    amount = float(amount_match.group(1)) if amount_match else 0.0
-
-    merchant_match = re.search(r'at\s+(.*?)\s+on', email_body)
-    merchant = merchant_match.group(1).strip() if merchant_match else "UNKNOWN_MERCHANT"
-
-    date_match = re.search(r'on\s+(\d{2}/\d{2}/\d{4})', email_body)
-    date = date_match.group(1) if date_match else "UNKNOWN_DATE"
+    # 1. Regex Extraction using separate module
+    extracted_data = extractor.extract_transaction_data(email_body)
+    amount = extracted_data["amount"]
+    merchant = extracted_data["merchant"]
+    date = extracted_data["date"]
 
     # 2. Categorization Mapping
     # We load our 'categories.json' to dynamically see if the merchant string maps to a bucket
