@@ -29,3 +29,32 @@ export interface WeeklySnapshot {
     totalSpent: number;
     buckets: BucketSummary[];
 }
+
+/** Plugin configuration and testing settings. */
+export interface BudgetPluginSettings {
+    environment: "production" | "testing";
+    activeScenario: string; // "none" or subfolder name under data/raw_test/scenarios/
+    prodDataFolder: string;
+    testDataFolder: string;
+}
+
+export const DEFAULT_SETTINGS: BudgetPluginSettings = {
+    environment: "production",
+    activeScenario: "none",
+    prodDataFolder: "data/raw",
+    testDataFolder: "data/raw_test"
+};
+
+/**
+ * Pure utility function to map plugin settings to their active vault directory path.
+ * This decouples environment constraints from business logic in dataService.ts.
+ */
+export function resolveDataFolder(settings: BudgetPluginSettings): string {
+    if (settings.environment === "testing") {
+        if (settings.activeScenario && settings.activeScenario !== "none") {
+            return `data/raw_test/scenarios/${settings.activeScenario}`;
+        }
+        return settings.testDataFolder || "data/raw_test";
+    }
+    return settings.prodDataFolder || "data/raw";
+}

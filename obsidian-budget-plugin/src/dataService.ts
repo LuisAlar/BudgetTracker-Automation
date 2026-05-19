@@ -1,44 +1,65 @@
 import { Vault, TFile } from "obsidian";
 import { Transaction, BucketSummary, WeeklySnapshot } from "./models";
 
-// ─── Configuration ───────────────────────────────────────────
-const DATA_FOLDER = "data/raw";
-
-// ─── File Reader ─────────────────────────────────────────────
-
 /**
- * Reads all .json files from the  folder in the vault
- * and parses them into Transaction objects.
+ * Reads all .json files from the resolved data folder in the vault directly from
+ * the disk using the Vault adapter, and parses/normalizes them into Transaction objects.
  */
-export async function loadTransactions(vault: Vault): Promise<Transaction[]> {
+export async function loadTransactions(vault: Vault, dataFolder: string): Promise<Transaction[]> {
     const transactions: Transaction[] = [];
-    const allFiles = vault.getFiles();
-    const files = allFiles.filter(
-        (f: TFile) => f.path.startsWith(DATA_FOLDER + "/") && f.extension === "json"
-    );
-
-    console.log(`[BudgetTracker] All vault files: ${allFiles.length}`);
-    console.log(`[BudgetTracker] JSON files in "${DATA_FOLDER}/": ${files.length}`);
-    if (files.length === 0) {
-        console.log(`[BudgetTracker] No files found. Sample paths:`, allFiles.slice(0, 10).map(f => f.path));
-    }
-
-    for (const file of files) {
-        try {
-            const raw = await vault.read(file);
-            const parsed = JSON.parse(raw);
-
-            if (Array.isArray(parsed)) {
-                transactions.push(...parsed);
-            } else {
-                transactions.push(parsed);
-            }
-        } catch (e) {
-            console.warn(`[BudgetTracker] Failed to parse ${file.path}:`, e);
+    
+    try {
+        const exists = await vault.adapter.exists(dataFolder);
+        if (!exists) {
+            console.log(`[BudgetTracker] Data folder "${dataFolder}" does not exist.`);
+            return [];
         }
+
+        const listResult = await vault.adapter.list(dataFolder);
+        const jsonFiles = listResult.files.filter((path) => path.endsWith(".json"));
+
+        console.log(`[BudgetTracker] JSON files in filesystem under "${dataFolder}/": ${jsonFiles.length}`);
+
+        for (const filePath of jsonFiles) {
+            try {
+                const raw = await vault.adapter.read(filePath);
+                const parsed = JSON.parse(raw);
+
+                const rawTransactions = Array.isArray(parsed) ? parsed : [parsed];
+
+                for (const rawTx of rawTransactions) {
+                    // Normalize the date field (could be 'date' or 'date_logged')
+                    const rawDate = rawTx.date_logged || rawTx.date;
+                    if (!rawDate) {
+                        console.warn(`[BudgetTracker] Missing date in transaction inside ${filePath}`);
+                        continue;
+                    }
+
+                    // Gracefully parse date (handles ISO strings and natural dates like "May 16, 2026")
+                    const parsedDate = new Date(rawDate);
+                    if (isNaN(parsedDate.getTime())) {
+                        console.warn(`[BudgetTracker] Invalid date format "${rawDate}" in ${filePath}`);
+                        continue;
+                    }
+
+                    transactions.push({
+                        transaction_id: rawTx.transaction_id || rawTx.id || Math.random().toString(36).substring(2, 11),
+                        amount: typeof rawTx.amount === "number" ? rawTx.amount : parseFloat(rawTx.amount || "0"),
+                        merchant: rawTx.merchant || "Unknown Merchant",
+                        category: rawTx.category || "Spontaneous",
+                        date_logged: parsedDate.toISOString(),
+                        notes: rawTx.notes || ""
+                    });
+                }
+            } catch (e) {
+                console.warn(`[BudgetTracker] Failed to parse or read file ${filePath}:`, e);
+            }
+        }
+    } catch (e) {
+        console.error(`[BudgetTracker] Error listing or loading files from ${dataFolder}:`, e);
     }
 
-    console.log(`[BudgetTracker] Loaded ${transactions.length} transactions total`);
+    console.log(`[BudgetTracker] Loaded ${transactions.length} transactions total from ${dataFolder}`);
     return transactions;
 }
 

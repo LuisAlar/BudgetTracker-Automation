@@ -2,14 +2,17 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
 import { BudgetDashboard } from "./BudgetDashboard";
+import BudgetPlugin from "./main";
 
 export const VIEW_TYPE_BUDGET = "budget-dashboard-view";
 
 export class BudgetView extends ItemView {
     root: Root | null = null;
+    plugin: BudgetPlugin;
 
-    constructor(leaf: WorkspaceLeaf) {
+    constructor(leaf: WorkspaceLeaf, plugin: BudgetPlugin) {
         super(leaf);
+        this.plugin = plugin;
     }
 
     getViewType() {
@@ -27,7 +30,7 @@ export class BudgetView extends ItemView {
         this.root = createRoot(container);
         this.root.render(
             <React.StrictMode>
-                <BudgetDashboard app={this.app} />
+                <BudgetDashboard app={this.app} plugin={this.plugin} />
             </React.StrictMode>
         );
     }
