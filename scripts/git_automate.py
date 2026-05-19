@@ -63,10 +63,10 @@ def main():
     pr_url = f"{web_url}/compare/{branch_name}"
     
     print("\n" + "="*70)
-    print("🚀 SUCCESS: Changes committed and pushed to GitHub remote!")
-    print(f"• Branch: {branch_name}")
-    print(f"• Commit: {commit_msg}")
-    print(f"\n👉 Click this link to create your Pull Request on GitHub:")
+    print("SUCCESS: Changes committed and pushed to GitHub remote!")
+    print(f"- Branch: {branch_name}")
+    print(f"- Commit: {commit_msg}")
+    print(f"\nClick this link to create your Pull Request on GitHub:")
     print(pr_url)
     print("="*70 + "\n")
 
