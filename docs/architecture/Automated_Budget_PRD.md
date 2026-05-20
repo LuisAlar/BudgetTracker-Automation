@@ -13,17 +13,17 @@ This architecture pivots away from custom Python/Plaid scripts and leverages the
 
 ```mermaid
 flowchart TD
-    subgraph Extraction (Microsoft Outlook)
+    subgraph Extraction ["Extraction (Microsoft Outlook)"]
         Bank[(Bank Account)] -- Transaction Alert --> Email[Outlook Email]
     end
 
-    subgraph Transformation (Power Automate)
+    subgraph Transformation ["Transformation (Power Automate)"]
         Email -- Triggers Flow --> PowerAutomate[Microsoft Power Automate]
         PowerAutomate -- AI Builder / Text Parse --> ExtractData{Extract: Amount, Merchant}
         ExtractData -- Keyword Rules --> Categorize[Tag to Budget Category]
     end
 
-    subgraph Destination & Load (OneDrive & Obsidian)
+    subgraph Destination ["Destination & Load (OneDrive & Obsidian)"]
         Categorize -- Create File --> OneDrive[OneDrive Folder]
         OneDrive -- Local Sync --> LocalVault[(Obsidian Vault)]
         LocalVault --> Dataview[Dataview Dashboard]

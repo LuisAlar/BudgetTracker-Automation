@@ -4,7 +4,7 @@ This document proposes three high-impact, lightweight modules designed to elevat
 
 ---
 
-## 🗺️ Architectural Concept Map
+## Architectural Concept Map
 
 Below is the updated event-driven architecture, showing how savings vaults, automated sweeps, and real-time stock integrations plug into your existing workflow:
 
@@ -14,15 +14,15 @@ flowchart TD
         Email[Outlook Transaction Alerts]
     end
 
-    subgraph Transformation (Power Automate)
+    subgraph Transformation ["Transformation (Power Automate)"]
         Email --> PA[Power Automate Flow]
         PA -- Parses JSON --> File[OneDrive Markdown/JSON File]
     end
 
-    subgraph Destination & Simulation Engine (Obsidian Plugin)
+    subgraph Destination ["Destination & Simulation Engine (Obsidian Plugin)"]
         File -- Syncs --> LocalVault[(Obsidian Vault)]
         
-        subgraph config [budget_config.json]
+        subgraph config ["budget_config.json"]
             C1[Allocations & Rules]
             C2[Savings Vaults & Splits]
             C3[Stock Ledger & Tickers]
@@ -31,7 +31,7 @@ flowchart TD
         LocalVault --> Engine[DataService Engine]
         config --> Engine
         
-        subgraph Dashboard UI [React View]
+        subgraph DashboardUI ["Dashboard UI (React View)"]
             D1[Discretionary Spending]
             D2["Savings Vaults (Visual Sub-Funds)"]
             D3["Stock Portfolio (Live Tickers)"]
@@ -41,7 +41,7 @@ flowchart TD
         Engine --> DashboardUI
     end
     
-    subgraph Market Integration
+    subgraph MarketIntegration ["Market Integration"]
         Yahoo[Yahoo Finance API] -- No-Key CORS Fetch --> Engine
     end
     
@@ -56,11 +56,11 @@ flowchart TD
 
 ---
 
-## 💎 Module 1: The "Savings Vault" Engine (Sub-Fund Tracking)
+## Module 1: The "Savings Vault" Engine (Sub-Fund Tracking)
 
 Currently, your budgeting system routes your weekly **$350.00 Strict Savings** allocation (plus any sweeps from **Experiences**) into a single, generic category. This module breaks down that large savings bucket into **intentional, visual sub-vaults** that track specific goals.
 
-### ⚙️ How it Works in the Backend (`budget_config.json`)
+### How it Works in the Backend (budget_config.json)
 We can expand your existing configuration file to define your savings vaults, targets, and split rules:
 
 ```json
@@ -89,7 +89,7 @@ We can expand your existing configuration file to define your savings vaults, ta
 }
 ```
 
-### 🧠 The Core Savings Rules
+### The Core Savings Rules
 
 1. **Automated Split Rules:** When your weekly $350.00 is deposited, the simulation engine automatically slices it up into the sub-vaults based on your percentage splits (e.g., 30% to Emergency, 20% to World Cup, etc.).
 2. **Surplus Rollover Sweep:** If your weekly discretionary buckets (like **Experiences** or **Groceries**) have a surplus, their sweep percentage (50% for Experiences) is redirected into the **Spontaneous Fun Savings** or **Investment Reserve** vault.
@@ -98,24 +98,24 @@ We can expand your existing configuration file to define your savings vaults, ta
    > If your parents pay for 50% or 100% of your rent, the money you "saved" by not paying it (e.g., $95.00/week or $190.00/week) is routed **automatically** into a dedicated **"Rent Protection Reserve"** vault. 
    > This visually separates the rent money you *would* have spent from your spending money, ensuring your parents' help directly increases your liquid net worth.
 
-### 🎨 Visual Layout in the Dashboard
+### Visual Layout in the Dashboard
 * **Dynamic Progress Bars:** Each vault gets a premium, glassmorphic progress bar displaying `Current / Target` with percentage badges.
-* **Goal Status:** Vaults that hit their target automatically glow green with a small success badge (e.g., "🎯 Fully Funded").
+* **Goal Status:** Vaults that hit their target automatically glow green with a small success badge (e.g., "Fully Funded").
 
 ---
 
-## 📈 Module 2: The "Stock Portfolio Sandbox" (Lightweight Investment Tracker)
+## Module 2: The "Stock Portfolio Sandbox" (Lightweight Investment Tracker)
 
 Adding investments shouldn't mean writing heavy brokerage integrations or introducing security risks. Instead, we can build a lightweight **Obsidian Investment Ledger** that automatically tracks your portfolio value using real-time market data.
 
-### 🔌 Real-Time Pricing (Zero API Keys Required!)
+### Real-Time Pricing (Zero API Keys Required!)
 > [!TIP]
-> Obsidian has a built-in API function called `requestUrl` which bypasses browser CORS (Cross-Origin Resource Sharing) restrictions. 
+> Obsidian has a built-in API function called requestUrl which bypasses browser CORS (Cross-Origin Resource Sharing) restrictions. 
 > We can leverage this to make direct, credential-free fetches to Yahoo Finance's public chart endpoint:
-> `https://query1.finance.yahoo.com/v8/finance/chart/{TICKER}`
+> https://query1.finance.yahoo.com/v8/finance/chart/{TICKER}
 > This allows us to fetch live stock prices for your portfolio on-the-fly, entirely for free, without needing any developer tokens!
 
-### ⚙️ How it Works in the Backend (`budget_config.json`)
+### How it Works in the Backend (budget_config.json)
 We add a portfolio ledger representing your holdings:
 
 ```json
@@ -126,7 +126,7 @@ We add a portfolio ledger representing your holdings:
 ]
 ```
 
-### 🧠 The Portfolio Intelligence Engine
+### The Portfolio Intelligence Engine
 1. **Live Valuations:** The React component fetches current market prices when the dashboard loads.
 2. **Performance Metrics:** The engine calculates:
    * **Current Value:** `Shares * Current Price`
@@ -135,17 +135,17 @@ We add a portfolio ledger representing your holdings:
 3. **Net Worth Fusion:** Your dashboard will now calculate a live **Total Net Worth** metric combining:
    $$\text{Total Net Worth} = \text{Liquid Cash Balance} + \text{Total Portfolio Value}$$
 
-### 🎨 Visual Layout in the Dashboard
+### Visual Layout in the Dashboard
 * **Glassmorphic Portfolio Card:** A card that glows with a subtle mesh gradient displaying your overall investment balance and performance.
 * **Allocation List:** A clean list of your stocks showing ticker, allocation percentage, shares, current price, and gain/loss.
 
 ---
 
-## 🏆 Module 3: "Summer Heatmap & Milestones" Gamification
+## Module 3: "Summer Heatmap & Milestones" Gamification
 
 Since this is a dedicated **Summer 2026 Budget**, we should gamify your 10-week timeline to keep you motivated and give you a dopamine hit for saving money!
 
-### ⚙️ How it Works in the Backend
+### How it Works in the Backend
 By establishing your summer start date and duration in `budget_config.json`, the simulation engine can determine your progress:
 
 ```json
@@ -155,35 +155,35 @@ By establishing your summer start date and duration in `budget_config.json`, the
 }
 ```
 
-### 🧠 The Gamified Features
+### The Gamified Features
 
 | Feature Name | Description | Visual Indicator |
 | :--- | :--- | :--- |
-| **Summer Progress Bar** | A visual timeline displaying the current week of your summer internship. | Progress bar: `Week 3 of 10` with a graduation cap icon 🎓. |
+| **Summer Progress Bar** | A visual timeline displaying the current week of your summer internship. | Progress bar: `Week 3 of 10` with a graduation cap icon. |
 | **Savings Milestones** | Badge rewards that unlock automatically as your total net savings grow. | Grayed-out badges that light up when unlocked. |
 | **The "Surplus Rescuer"** | Tracks the cumulative dollar amount of money you rescued from spending and swept to savings. | A glowing counter labeled: *"You successfully rescued $342.50 from discretionary spending!"* |
 
-### 🏅 Summer Milestone Badges to Unlock:
-* 🟢 **"The Launchpad"** (Unlocked at $1,000 Total Saved): You've established your foundation!
-* ⚽ **"World Cup Champion"** (Unlocked when World Cup sub-vault is 100% funded): Your tickets and beer funds are secured!
-* 🏠 **"Independence Builder"** (Unlocked at $3,500 Total Saved): Equivalent to Scenario A's baseline!
-* 👑 **"Financial Sovereign"** (Unlocked at $5,000+ Total Saved): You fully conquered the summer!
+### Summer Milestone Badges to Unlock:
+* **"The Launchpad"** (Unlocked at $1,000 Total Saved): You've established your foundation!
+* **"World Cup Champion"** (Unlocked when World Cup sub-vault is 100% funded): Your tickets and beer funds are secured!
+* **"Independence Builder"** (Unlocked at $3,500 Total Saved): Equivalent to Scenario A's baseline!
+* **"Financial Sovereign"** (Unlocked at $5,000+ Total Saved): You fully conquered the summer!
 
 ---
 
-## 📊 Summary Comparison: Effort vs. Impact
+## Summary Comparison: Effort vs. Impact
 
 To help you decide what to focus on first, here is a quick breakdown:
 
 | Module | Implementation Complexity | Daily Value / Dopamine | Primary Benefit |
 | :--- | :--- | :--- | :--- |
-| **1. Savings Vaults** | 🟡 **Medium** (Updates to `dataService.ts` and React UI) | 🔥 **High** | Gives every saved dollar a clear purpose and isolates parent-rent contributions. |
-| **2. Stock Portfolio** | 🔴 **High** (Needs Yahoo API requests + loading state handlings) | 🚀 **Very High** | Provides a single dashboard for your entire net worth with real-time tracking. |
-| **3. Gamification** | 🟢 **Low** (Simple math based on dates & totals) | 🎉 **Medium** | Keeps you motivated week-to-week through a defined 10-week summer roadmap. |
+| **1. Savings Vaults** | Medium (Updates to `dataService.ts` and React UI) | High | Gives every saved dollar a clear purpose and isolates parent-rent contributions. |
+| **2. Stock Portfolio** | High (Needs Yahoo API requests + loading state handlings) | Very High | Provides a single dashboard for your entire net worth with real-time tracking. |
+| **3. Gamification** | Low (Simple math based on dates & totals) | Medium | Keeps you motivated week-to-week through a defined 10-week summer roadmap. |
 
 ---
 
-## 💬 Next Steps & Your Input
+## Next Steps & Your Input
 
 > [!NOTE]
 > None of these additions require changes to your Power Automate pipeline! They all rely entirely on the simulation engine running inside your Obsidian plugin (`dataService.ts`) and your local dashboard UI (`BudgetDashboard.tsx`). 
