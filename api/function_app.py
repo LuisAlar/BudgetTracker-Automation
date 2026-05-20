@@ -26,18 +26,19 @@ def parse_email(req: func.HttpRequest) -> func.HttpResponse:
     date = extracted_data["date"]
 
     # 2. Categorization Mapping
-    # We load our 'categories.json' to dynamically see if the merchant string maps to a bucket
-    category = "Spontaneous" # Fallback bucket
-    try:
-        with open("categories.json", "r") as f:
-            categories_map = json.load(f)
-            # Find which array the merchant falls into
-            for bucket, merchants in categories_map.items():
-                if any(m.lower() in merchant.lower() for m in merchants):
-                    category = bucket
-                    break
-    except Exception as e:
-        logging.error(f"Error reading categories.json: {e}")
+    category = extracted_data.get("category")
+    if not category:
+        category = "Spontaneous" # Fallback bucket
+        try:
+            with open("categories.json", "r") as f:
+                categories_map = json.load(f)
+                # Find which array the merchant falls into
+                for bucket, merchants in categories_map.items():
+                    if any(m.lower() in merchant.lower() for m in merchants):
+                        category = bucket
+                        break
+        except Exception as e:
+            logging.error(f"Error reading categories.json: {e}")
 
     # 3. Build & Return the structured JSON for Power Automate to use
     result = {

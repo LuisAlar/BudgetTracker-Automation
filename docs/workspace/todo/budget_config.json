@@ -1,0 +1,23 @@
+{
+  "initial_seed_balance": 1900.0,
+  "allocations": {
+    "Groceries": 125.0,
+    "Gas": 40.0,
+    "Subscriptions": 15.0,
+    "Experiences": 130.0,
+    "Strict Savings": 350.0
+  },
+  "rollover_rules": {
+    "Experiences": {
+      "rollover_percent": 50,
+      "sweep_target": "Strict Savings",
+      "sweep_percent": 50
+    },
+    "Gas": {
+      "rollover_percent": 100
+    },
+    "Groceries": {
+      "rollover_percent": 100
+    }
+  }
+}

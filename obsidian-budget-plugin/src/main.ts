@@ -1,6 +1,6 @@
 import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { BudgetView, VIEW_TYPE_BUDGET } from "./BudgetView";
-import { loadTransactions, buildWeeklySnapshot } from "./dataService";
+import { loadTransactions, buildWeeklySnapshot, loadBudgetConfig } from "./dataService";
 import { updateLiveDashboard, updateAllTransactionsDashboard } from "./dashboardWriter";
 import { BudgetPluginSettings, DEFAULT_SETTINGS, resolveDataFolder } from "./models";
 
@@ -106,9 +106,17 @@ export default class BudgetPlugin extends Plugin {
 	/** Reads all transaction data and updates the Live Dashboard .md file. */
 	async refreshDashboard() {
 		try {
+			// loads needed Data and config
 			const folderPath = resolveDataFolder(this.settings);
 			const transactions = await loadTransactions(this.app.vault, folderPath);
-			const snapshot = buildWeeklySnapshot(transactions);
+			const config = await loadBudgetConfig(this.app.vault);
+			
+			let targetDate = new Date();
+			if (this.settings.activeWeekDate && this.settings.activeWeekDate !== "current") {
+				targetDate = new Date(this.settings.activeWeekDate + "T00:00:00");
+			}
+
+			const snapshot = buildWeeklySnapshot(transactions, config, targetDate);
 			await updateLiveDashboard(this.app.vault, snapshot, this.settings);
 			await updateAllTransactionsDashboard(this.app.vault, transactions, this.settings);
 			console.log(`[BudgetTracker] Dashboards refreshed: ${transactions.length} transactions total.`);

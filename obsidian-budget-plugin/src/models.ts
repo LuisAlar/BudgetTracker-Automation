@@ -17,16 +17,22 @@ export interface Transaction {
 /** Spending aggregated by category bucket. */
 export interface BucketSummary {
     category: string;
-    total: number;
+    total: number; // Total spent this week
     count: number;
+    allocation: number; // Configuration allocation (e.g. $125)
+    rolloverCushion: number; // Carryover cushion from prior weeks (can be negative for deficit)
+    available: number; // allocation + rolloverCushion - total
     transactions: Transaction[];
 }
 
 /** A full weekly snapshot used to render the Live Dashboard. */
 export interface WeeklySnapshot {
-    weekStart: string; // ISO date of Monday
-    weekEnd: string;   // ISO date of Sunday
+    weekStart: string; // ISO date of Monday (YYYY-MM-DD)
+    weekEnd: string;   // ISO date of Sunday (YYYY-MM-DD)
+    startingAmount: number; // Starting balance on Monday (closing balance of previous week)
     totalSpent: number;
+    totalDeposited: number;
+    availableBalance: number; // startingAmount + totalDeposited - totalSpent
     buckets: BucketSummary[];
 }
 
@@ -36,13 +42,15 @@ export interface BudgetPluginSettings {
     activeScenario: string; // "none" or subfolder name under data/raw_test/scenarios/
     prodDataFolder: string;
     testDataFolder: string;
+    activeWeekDate: string; // YYYY-MM-DD of the week start we are currently viewing
 }
 
 export const DEFAULT_SETTINGS: BudgetPluginSettings = {
     environment: "production",
     activeScenario: "none",
     prodDataFolder: "data/raw",
-    testDataFolder: "data/raw_test"
+    testDataFolder: "data/raw_test",
+    activeWeekDate: "current" // "current" defaults to the calendar week, otherwise YYYY-MM-DD
 };
 
 /**

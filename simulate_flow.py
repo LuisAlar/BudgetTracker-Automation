@@ -11,7 +11,7 @@ DEFAULT_VAULT_PATH = r"C:\Users\alarc\Box\All Files\Budget-Tracker"
 categories = [
     "Groceries", "Gas", "Subscriptions", 
     "Dining Out", "plants", "Raves", 
-    "Simulated Housing", "Base Essentials", "Spontaneous"
+    "Simulated Housing", "Base Essentials", "Spontaneous", "Deposits"
 ]
 
 merchants = [
@@ -43,11 +43,25 @@ def generate_mock_transactions(vault_path, env, scenario, num, max_days):
         days_ago = random.randint(0, max_days)
         random_date = datetime.now() - timedelta(days=days_ago)
         
+        chosen_category = random.choice(categories)
+        chosen_merchant = random.choice(merchants)
+        
+        # Determine amount and adjust if it is a deposit
+        if chosen_merchant.lower() == "zelle":
+            chosen_category = "Deposits"
+            chosen_merchant = random.choice(["Zelle from Mom", "Zelle from Friend", "Zelle from Landlord"])
+            amount = round(random.uniform(10.00, 300.00), 2)
+        elif chosen_category == "Deposits":
+            chosen_merchant = random.choice(["BofA Deposit: Employer Paycheck", "Zelle from Roommate"])
+            amount = round(random.uniform(150.00, 1800.00), 2)
+        else:
+            amount = round(random.uniform(5.50, 150.00), 2)
+            
         data = {
             "transaction_id": t_id,
-            "amount": round(random.uniform(5.50, 150.00), 2),
-            "merchant": random.choice(merchants),
-            "category": random.choice(categories),
+            "amount": amount,
+            "merchant": chosen_merchant,
+            "category": chosen_category,
             "date_logged": random_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "notes": f"Generated mock transaction for {env} mode."
         }

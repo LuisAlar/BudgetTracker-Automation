@@ -82,8 +82,21 @@ function renderAllTransactionsMarkdown(transactions: Transaction[], isTesting = 
     
     lines.push(`_This dashboard displays all successfully parsed JSON transactions on disk without any date filtering._`);
     lines.push(``);
-    lines.push(`> **Total Transactions Loaded**: ${transactions.length}`);
-    lines.push(`> **Cumulative Spending (All-Time)**: $${transactions.reduce((sum, tx) => sum + tx.amount, 0).toFixed(2)}`);
+
+    const expenses = transactions.filter((tx) => tx.category !== "Deposits");
+    const deposits = transactions.filter((tx) => tx.category === "Deposits");
+    
+    const totalSpent = expenses.reduce((sum, tx) => sum + tx.amount, 0);
+    const totalDeposited = deposits.reduce((sum, tx) => sum + tx.amount, 0);
+    const netAllTime = totalDeposited - totalSpent;
+
+    lines.push(`> [!NOTE]`);
+    lines.push(`> ### Cumulative Spending & Balance (All-Time)`);
+    lines.push(`> * **Total Transactions**: ${transactions.length}`);
+    lines.push(`> * **Total Spent**: **$${totalSpent.toFixed(2)}**`);
+    lines.push(`> * **Starting Deposits**: **+$${totalDeposited.toFixed(2)}**`);
+    const netAllTimeSign = netAllTime >= 0 ? "+" : "-";
+    lines.push(`> * **Net Balance**: **${netAllTimeSign}$${Math.abs(netAllTime).toFixed(2)}**`);
     lines.push(``);
 
     if (transactions.length === 0) {
@@ -94,6 +107,7 @@ function renderAllTransactionsMarkdown(transactions: Transaction[], isTesting = 
     // ── Category Breakdown ──
     const categoryMap = new Map<string, { total: number; count: number }>();
     for (const tx of transactions) {
+        if (tx.category === "Deposits") continue; // Exclude deposits from spending breakdown
         const cat = tx.category || "Spontaneous";
         const current = categoryMap.get(cat) || { total: 0, count: 0 };
         categoryMap.set(cat, {
@@ -129,8 +143,11 @@ function renderAllTransactionsMarkdown(transactions: Transaction[], isTesting = 
             month: "short",
             day: "numeric",
         });
+        const isDeposit = tx.category === "Deposits";
+        const prefix = isDeposit ? "+" : "-";
+        const amtStr = `**${prefix}$${tx.amount.toFixed(2)}**`;
         lines.push(
-            `| ${dateStr} | **${tx.merchant}** | $${tx.amount.toFixed(2)} | _${tx.category}_ | \`${tx.transaction_id}\` |`
+            `| ${dateStr} | **${tx.merchant}** | ${amtStr} | _${tx.category}_ | \`${tx.transaction_id}\` |`
         );
     }
 
@@ -148,7 +165,7 @@ function renderAllTransactionsMarkdown(transactions: Transaction[], isTesting = 
 function renderDashboardMarkdown(snapshot: WeeklySnapshot, isTesting = false): string {
     const lines: string[] = [];
 
-    lines.push(isTesting ? `# Spending (TEST)` : `# Spending`);
+    lines.push(isTesting ? `# Financial Balance (TEST)` : `# Financial Balance`);
     
     if (isTesting) {
         lines.push(`> [!WARNING]`);
@@ -158,23 +175,60 @@ function renderDashboardMarkdown(snapshot: WeeklySnapshot, isTesting = false): s
 
     lines.push(`**Week of ${snapshot.weekStart} → ${snapshot.weekEnd}**`);
     lines.push(``);
-    lines.push(`> **Total Spent: $${snapshot.totalSpent.toFixed(2)}**`);
+    
+    // Sleek Callout header in Markdown
+    lines.push(`> [!NOTE]`);
+    lines.push(`> ### Weekly Spending Summary`);
+    lines.push(`> * **Total Spent**: **$${snapshot.totalSpent.toFixed(2)}**`);
+    lines.push(`> * **Starting Monday**: **$${snapshot.startingAmount.toFixed(2)}**`);
+    const balanceSign = snapshot.availableBalance >= snapshot.startingAmount ? "+" : "";
+    lines.push(`> * **Available Balance**: **${balanceSign}$${snapshot.availableBalance.toFixed(2)}**`);
     lines.push(``);
 
-    if (snapshot.buckets.length === 0) {
-        lines.push(`_No transactions recorded this week._`);
+    const spendingBuckets = snapshot.buckets.filter((b) => b.category !== "Deposits");
+
+    if (spendingBuckets.length === 0) {
+        lines.push(`_No spending transactions recorded this week._`);
+        
+        // Render deposit list if there are Zelle/BofA inflows
+        const depositsBucket = snapshot.buckets.find((b) => b.category === "Deposits");
+        if (depositsBucket && depositsBucket.transactions.length > 0) {
+            lines.push(``);
+            lines.push(`## Weekly Deposits`);
+            lines.push(``);
+            for (const tx of depositsBucket.transactions) {
+                const date = new Date(tx.date_logged).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                });
+                lines.push(`- **${tx.merchant}** — **+$${tx.amount.toFixed(2)}** — ${date}`);
+            }
+        }
+        
+        lines.push(``);
+        lines.push(`---`);
         return lines.join("\n");
     }
 
     // ── Category Breakdown Table ──
     lines.push(`## Spending by Category`);
     lines.push(``);
-    lines.push(`| Category | Spent | # Transactions |`);
-    lines.push(`|----------|------:|:--------------:|`);
+    lines.push(`| Category | Spent | Allocation / Available | Rollover Cushion | # Transactions |`);
+    lines.push(`|----------|------:|-----------------------:|-----------------:|:--------------:|`);
 
-    for (const bucket of snapshot.buckets) {
+    for (const bucket of spendingBuckets) {
+        const limitStr = `$${(bucket.allocation + bucket.rolloverCushion).toFixed(2)}`;
+        const availStr = `$${bucket.available.toFixed(2)}`;
+        
+        let rolloverStr = `—`;
+        if (bucket.rolloverCushion > 0) {
+            rolloverStr = `+$${bucket.rolloverCushion.toFixed(2)}`;
+        } else if (bucket.rolloverCushion < 0) {
+            rolloverStr = `-$${Math.abs(bucket.rolloverCushion).toFixed(2)}`;
+        }
+
         lines.push(
-            `| ${bucket.category} | $${bucket.total.toFixed(2)} | ${bucket.count} |`
+            `| ${bucket.category} | $${bucket.total.toFixed(2)} | ${limitStr} (avail: ${availStr}) | ${rolloverStr} | ${bucket.count} |`
         );
     }
 
@@ -195,8 +249,10 @@ function renderDashboardMarkdown(snapshot: WeeklySnapshot, isTesting = false): s
             month: "short",
             day: "numeric",
         });
+        const isDeposit = tx.category === "Deposits";
+        const prefix = isDeposit ? "+" : "-";
         lines.push(
-            `- **${tx.merchant}** — $${tx.amount.toFixed(2)} _(${tx.category})_ — ${date}`
+            `- **${tx.merchant}** — **${prefix}$${tx.amount.toFixed(2)}** _(${tx.category})_ — ${date}`
         );
     }
 
