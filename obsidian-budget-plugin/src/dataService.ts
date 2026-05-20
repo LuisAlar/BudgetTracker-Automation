@@ -100,46 +100,6 @@ export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
 };
 
 /**
- * Loads budget_config.json from the active Obsidian vault, falling back to defaults if missing.
- */
-export async function loadBudgetConfig(vault: Vault): Promise<BudgetConfig> {
-    const configPath = "docs/workspace/todo/budget_config.json";
-    try {
-        const exists = await vault.adapter.exists(configPath);
-        if (exists) {
-            const raw = await vault.adapter.read(configPath);
-            const parsed = JSON.parse(raw);
-            return {
-                initial_seed_balance: typeof parsed.initial_seed_balance === "number" ? parsed.initial_seed_balance : 1900.0,
-                allocations: parsed.allocations || DEFAULT_BUDGET_CONFIG.allocations,
-                rollover_rules: parsed.rollover_rules || DEFAULT_BUDGET_CONFIG.rollover_rules
-            };
-        }
-    } catch (e) {
-        console.warn(`[BudgetTracker] Failed to load budget_config.json, using defaults:`, e);
-    }
-    return DEFAULT_BUDGET_CONFIG;
-}
-
-/** Get the Monday 00:00 of the week containing the given date. */
-export function getWeekStart(date: Date): Date {
-    const d = new Date(date);
-    const day = d.getDay(); // 0 = Sunday
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust to Monday
-    d.setDate(diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
-
-/** Get the Sunday 23:59 of the week containing the given date. */
-export function getWeekEnd(weekStart: Date): Date {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 6);
-    d.setHours(23, 59, 59, 999);
-    return d;
-}
-
-/**
  * Historical simulation engine: Computes snapshots week-by-week chronologically
  * to calculate Monday starting balances and rollover cushions, then returns
  * the WeeklySnapshot for the requested week.
@@ -186,82 +146,23 @@ export function buildWeeklySnapshot(
 
     let loopCount = 0;
     const maxWeeks = 1000;
-    // why is this
+
     while (currentWeekStart <= targetWeekStart && loopCount++ < maxWeeks) {
         const currentWeekEnd = getWeekEnd(currentWeekStart);
         const startStr = currentWeekStart.toISOString().slice(0, 10);
         const endStr = currentWeekEnd.toISOString().slice(0, 10);
 
-        // Filter transactions for this specific week
-        const weekTxs = sortedTxs.filter((tx) => {
-            const txDate = new Date(tx.date_logged);
-            return txDate >= currentWeekStart && txDate <= currentWeekEnd;
-        });
+        // Filter transactions for this week
+        const { expenses, deposits } = filterTransactionsForWeek(sortedTxs, currentWeekStart, currentWeekEnd);
 
-        const expensesTx = weekTxs.filter((tx) => tx.category !== "Deposits");
-        const depositsTx = weekTxs.filter((tx) => tx.category === "Deposits");
+        const totalSpent = expenses.reduce((sum, tx) => sum + tx.amount, 0);
+        const totalDeposited = deposits.reduce((sum, tx) => sum + tx.amount, 0);
 
-        const totalSpent = expensesTx.reduce((sum, tx) => sum + tx.amount, 0);
-        const totalDeposited = depositsTx.reduce((sum, tx) => sum + tx.amount, 0);
+        // Group expenses by category
+        const expensesByCategory = groupExpensesByCategory(expenses);
 
-        // Group expenses by category for this week
-        const expensesByCategory: Record<string, { total: number; txs: Transaction[] }> = {};
-        for (const tx of expensesTx) {
-            const cat = tx.category;
-            if (!expensesByCategory[cat]) {
-                expensesByCategory[cat] = { total: 0, txs: [] };
-            }
-            expensesByCategory[cat].total += tx.amount;
-            expensesByCategory[cat].txs.push(tx);
-        }
-
-        // Build bucket summaries for this week
-        const buckets: BucketSummary[] = [];
-        
-        // Ensure all configured categories have a bucket
-        const allCategories = new Set([
-            ...Object.keys(config.allocations),
-            ...Object.keys(expensesByCategory)
-        ]);
-
-        for (const cat of allCategories) {
-            if (cat === "Deposits") continue;
-
-            const spentInfo = expensesByCategory[cat] || { total: 0, txs: [] };
-            const allocation = config.allocations[cat] || 0;
-            const rolloverCushion = categoryCushions[cat] || 0;
-            const available = allocation + rolloverCushion - spentInfo.total;
-
-            buckets.push({
-                category: cat,
-                total: spentInfo.total,
-                count: spentInfo.txs.length,
-                allocation,
-                rolloverCushion,
-                available,
-                transactions: spentInfo.txs
-            });
-        }
-
-        // Include deposits bucket if deposits were made
-        if (depositsTx.length > 0) {
-            buckets.push({
-                category: "Deposits",
-                total: totalDeposited,
-                count: depositsTx.length,
-                allocation: 0,
-                rolloverCushion: 0,
-                available: totalDeposited,
-                transactions: depositsTx
-            });
-        }
-
-        // Sort buckets by total spent descending
-        buckets.sort((a, b) => {
-            if (a.category === "Deposits") return 1;
-            if (b.category === "Deposits") return -1;
-            return b.total - a.total;
-        });
+        // Build bucket summaries
+        const buckets = buildBuckets(expensesByCategory, deposits, config, categoryCushions);
 
         // Compute starting and ending balances for this week
         const startingAmount = currentBalanceAccumulated;
@@ -282,41 +183,14 @@ export function buildWeeklySnapshot(
         }
 
         // 6. Calculate category cushions for next week
-        const nextCategoryCushions: Record<string, number> = {};
-        for (const cat of allCategories) {
-            if (cat === "Deposits") continue;
+        const nextCategoryCushions = calculateNextCushions(expensesByCategory, config, categoryCushions);
 
-            const spentInfo = expensesByCategory[cat] || { total: 0, txs: [] };
-            const allocation = config.allocations[cat] || 0;
-            const cushion = categoryCushions[cat] || 0;
-            const leftover = allocation + cushion - spentInfo.total;
-
-            if (leftover > 0) {
-                // Apply rollover rules
-                const rule = config.rollover_rules[cat];
-                if (rule) {
-                    const rollPercent = rule.rollover_percent;
-                    const rollAmt = leftover * (rollPercent / 100);
-                    nextCategoryCushions[cat] = (nextCategoryCushions[cat] || 0) + rollAmt;
-
-                    if (rule.sweep_target && rule.sweep_percent) {
-                        const sweepAmt = leftover * (rule.sweep_percent / 100);
-                        const sweepTarget = rule.sweep_target;
-                        nextCategoryCushions[sweepTarget] = (nextCategoryCushions[sweepTarget] || 0) + sweepAmt;
-                    }
-                } else {
-                    // Default rule: 100% rollover
-                    nextCategoryCushions[cat] = (nextCategoryCushions[cat] || 0) + leftover;
-                }
-            } else {
-                // Deficit: 100% carried over as negative cushion (must pay it back)
-                nextCategoryCushions[cat] = (nextCategoryCushions[cat] || 0) + leftover;
-            }
+        // Reset and update cushions for next iteration
+        for (const cat of Object.keys(categoryCushions)) {
+            categoryCushions[cat] = 0;
         }
-
-        // Update cushions for next iteration
-        for (const cat of Object.keys(nextCategoryCushions)) {
-            categoryCushions[cat] = nextCategoryCushions[cat] ?? 0;
+        for (const [cat, cushion] of Object.entries(nextCategoryCushions)) {
+            categoryCushions[cat] = cushion;
         }
 
         // Advance to next Monday
@@ -345,4 +219,189 @@ export function buildWeeklySnapshot(
             transactions: []
         }))
     };
+}
+
+/**
+ * Loads budget_config.json from the active Obsidian vault, falling back to defaults if missing.
+ */
+export async function loadBudgetConfig(vault: Vault): Promise<BudgetConfig> {
+    const configPath = "budget_config.json";
+    try {
+        const exists = await vault.adapter.exists(configPath);
+        if (exists) {
+            const raw = await vault.adapter.read(configPath);
+            const parsed = JSON.parse(raw);
+            return {
+                initial_seed_balance: typeof parsed.initial_seed_balance === "number" ? parsed.initial_seed_balance : 1900.0,
+                allocations: parsed.allocations || DEFAULT_BUDGET_CONFIG.allocations,
+                rollover_rules: parsed.rollover_rules || DEFAULT_BUDGET_CONFIG.rollover_rules
+            };
+        }
+    } catch (e) {
+        console.warn(`[BudgetTracker] Failed to load budget_config.json, using defaults:`, e);
+    }
+    return DEFAULT_BUDGET_CONFIG;
+}
+
+/** Get the Monday 00:00 of the week containing the given date. */
+export function getWeekStart(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay(); // 0 = Sunday
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust to Monday
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+/** Get the Sunday 23:59 of the week containing the given date. */
+export function getWeekEnd(weekStart: Date): Date {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 6);
+    d.setHours(23, 59, 59, 999);
+    return d;
+}
+
+/**
+ * Filters transactions that occurred within a given week boundary and splits them into expenses and deposits.
+ */
+export function filterTransactionsForWeek(
+    transactions: Transaction[],
+    weekStart: Date,
+    weekEnd: Date
+): { expenses: Transaction[]; deposits: Transaction[] } {
+    const weekTxs = transactions.filter((tx) => {
+        const txDate = new Date(tx.date_logged);
+        return txDate >= weekStart && txDate <= weekEnd;
+    });
+
+    const expenses = weekTxs.filter((tx) => tx.category !== "Deposits");
+    const deposits = weekTxs.filter((tx) => tx.category === "Deposits");
+
+    return { expenses, deposits };
+}
+
+/**
+ * Groups a list of expense transactions by their category and computes total spent per category.
+ */
+export function groupExpensesByCategory(
+    expenses: Transaction[]
+): Record<string, { total: number; txs: Transaction[] }> {
+    const expensesByCategory: Record<string, { total: number; txs: Transaction[] }> = {};
+    for (const tx of expenses) {
+        const cat = tx.category;
+        if (!expensesByCategory[cat]) {
+            expensesByCategory[cat] = { total: 0, txs: [] };
+        }
+        expensesByCategory[cat].total += tx.amount;
+        expensesByCategory[cat].txs.push(tx);
+    }
+    return expensesByCategory;
+}
+
+/**
+ * Builds the bucket summaries for a week, incorporating allocations, rollover cushions, and actual spending.
+ */
+export function buildBuckets(
+    expensesByCategory: Record<string, { total: number; txs: Transaction[] }>,
+    deposits: Transaction[],
+    config: BudgetConfig,
+    categoryCushions: Record<string, number>
+): BucketSummary[] {
+    const buckets: BucketSummary[] = [];
+    
+    // Ensure all configured categories have a bucket
+    const allCategories = new Set([
+        ...Object.keys(config.allocations),
+        ...Object.keys(expensesByCategory)
+    ]);
+
+    for (const cat of allCategories) {
+        if (cat === "Deposits") continue;
+
+        const spentInfo = expensesByCategory[cat] || { total: 0, txs: [] };
+        const allocation = config.allocations[cat] || 0;
+        const rolloverCushion = categoryCushions[cat] || 0;
+        const available = allocation + rolloverCushion - spentInfo.total;
+
+        buckets.push({
+            category: cat,
+            total: spentInfo.total,
+            count: spentInfo.txs.length,
+            allocation,
+            rolloverCushion,
+            available,
+            transactions: spentInfo.txs
+        });
+    }
+
+    // Include deposits bucket if deposits were made
+    if (deposits.length > 0) {
+        const totalDeposited = deposits.reduce((sum, tx) => sum + tx.amount, 0);
+        buckets.push({
+            category: "Deposits",
+            total: totalDeposited,
+            count: deposits.length,
+            allocation: 0,
+            rolloverCushion: 0,
+            available: totalDeposited,
+            transactions: deposits
+        });
+    }
+
+    // Sort buckets by total spent descending (with Deposits always at the end)
+    buckets.sort((a, b) => {
+        if (a.category === "Deposits") return 1;
+        if (b.category === "Deposits") return -1;
+        return b.total - a.total;
+    });
+
+    return buckets;
+}
+
+/**
+ * Computes the cushions for the next week based on allocation, current cushions, expenses, and rollover rules.
+ */
+export function calculateNextCushions(
+    expensesByCategory: Record<string, { total: number }>,
+    config: BudgetConfig,
+    currentCushions: Record<string, number>
+): Record<string, number> {
+    const nextCategoryCushions: Record<string, number> = {};
+    const allCategories = new Set([
+        ...Object.keys(config.allocations),
+        ...Object.keys(expensesByCategory)
+    ]);
+
+    for (const cat of allCategories) {
+        if (cat === "Deposits") continue;
+
+        const spentInfo = expensesByCategory[cat] || { total: 0 };
+        const allocation = config.allocations[cat] || 0;
+        const cushion = currentCushions[cat] || 0;
+        const leftover = allocation + cushion - spentInfo.total;
+
+        if (leftover > 0) {
+            // Apply rollover rules
+            const rule = config.rollover_rules[cat];
+            if (rule) {
+                const rollPercent = rule.rollover_percent;
+                const rollAmt = leftover * (rollPercent / 100);
+                nextCategoryCushions[cat] = (nextCategoryCushions[cat] || 0) + rollAmt;
+
+                if (rule.sweep_target && rule.sweep_percent) {
+                    const sweepAmt = leftover * (rule.sweep_percent / 100);
+                    const sweepTarget = rule.sweep_target;
+                    nextCategoryCushions[sweepTarget] = (nextCategoryCushions[sweepTarget] || 0) + sweepAmt;
+                }
+            } else {
+                // Default rule: 100% rollover
+                nextCategoryCushions[cat] = (nextCategoryCushions[cat] || 0) + leftover;
+            }
+        } else {
+            // Deficit: 100% carried over as negative cushion (must pay it back)
+            nextCategoryCushions[cat] = (nextCategoryCushions[cat] || 0) + leftover;
+        }
+    }
+
+    return nextCategoryCushions;
 }
