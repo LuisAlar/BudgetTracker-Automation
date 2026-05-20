@@ -1,0 +1,29 @@
+# Antigravity Transactional Workspace Rules
+
+You are working in a hybrid environment where the `docs/` directory is symlinked to the user's Obsidian Vault (`C:\Users\alarc\Box\All Files\Budget-Tracker\docs`). You must follow this strict transactional workflow to coordinate code modifications.
+
+---
+
+## Step 1: Scan and Detect (On Boot)
+On boot, sweep `docs/workspace/todo/` for any `.md` files. If any file exists:
+1. Treat the file content as your primary development instruction.
+2. Draft a comprehensive, structured Technical Plan inside an `implementation_plan.md` artifact (and outline task items in `task.md`).
+3. **STOP immediately and wait for the user's explicit approval.** Do NOT make any codebase changes until approved.
+
+## Step 2: Implement (After Approval Only)
+Once the user approves your plan in the chat:
+1. Execute all code modifications.
+2. Compile and test the project (e.g. run `npm run build` in `obsidian-budget-plugin`).
+3. If compiler errors or test failures occur, resolve them completely before proceeding.
+
+## Step 3: Write the History Log
+Create a new chronological Markdown walkthrough under `docs/workspace/logs/log-YYYY-MM-DD-<name>.md` following this structure:
+- **Title**: `# Change Log: <Name of Task>`
+- **Overview**: High-level summary of what was accomplished.
+- **Detailed Changes**: File-by-file explanations of modified/added code.
+- **Verification**: Build command outputs or verification results showing the code compiles and works.
+
+## Step 4: Archive the Todo File
+To complete the transaction, **move** the original user note from `docs/workspace/todo/` to `docs/workspace/archive/`.
+- NEVER leave a completed todo note in the `todo/` directory.
+- Do NOT finish your turn or declare success to the user until the file is moved to `archive/`.
