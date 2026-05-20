@@ -123,7 +123,7 @@ export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ app, plugin })
     }
 
     return (
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+        <div className="budget-dashboard-container" style={{ padding: 16, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
             {/* Header with Settings Toggle */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <div style={{ fontSize: "16px", fontWeight: "600", color: "var(--text-normal)" }}>Budget Tracker</div>
