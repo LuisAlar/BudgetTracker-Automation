@@ -1,7 +1,7 @@
 import { Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { BudgetView, VIEW_TYPE_BUDGET } from "./BudgetView";
-import { loadTransactions, buildWeeklySnapshot, loadBudgetConfig } from "./dataService";
-import { updateLiveDashboard, updateAllTransactionsDashboard } from "./dashboardWriter";
+import { loadTransactions, buildWeeklySnapshot, loadBudgetConfig } from "./components/dataService";
+import { updateLiveDashboard, updateAllTransactionsDashboard } from "./components/dashboardWriter";
 import { BudgetPluginSettings, DEFAULT_SETTINGS, resolveDataFolder } from "./models";
 
 export default class BudgetPlugin extends Plugin {
@@ -9,6 +9,12 @@ export default class BudgetPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Inject Google Font
+		const fontLink = document.createElement('link');
+		fontLink.href = 'https://fonts.googleapis.com/css2?family=Afacad:wght@400..700&display=swap';
+		fontLink.rel = 'stylesheet';
+		document.head.appendChild(fontLink);
 
 		// Register the custom view
 		this.registerView(

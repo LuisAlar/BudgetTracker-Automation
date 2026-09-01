@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { App } from "obsidian";
-import { loadTransactions, buildWeeklySnapshot, loadBudgetConfig } from "./dataService";
-import { WeeklySnapshot, resolveDataFolder } from "./models";
+import { 
+    loadTransactions, 
+    buildWeeklySnapshot, 
+    loadBudgetConfig, 
+    BudgetConfig, 
+    getExperiencesSubTagBreakdown, 
+    calculateSpendingAnalytics 
+} from "./components/dataService";
+import { WeeklySnapshot, resolveDataFolder, Transaction } from "./models";
 import BudgetPlugin from "./main";
+import { SolarSystemMap } from "./components/SolarSystemMap";
 
 interface BudgetDashboardProps {
     app: App;
@@ -11,6 +19,8 @@ interface BudgetDashboardProps {
 
 export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ app, plugin }) => {
     const [snapshot, setSnapshot] = useState<WeeklySnapshot | null>(null);
+    const [config, setConfig] = useState<BudgetConfig | null>(null);
+    const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [showSettings, setShowSettings] = useState(false);
     
@@ -20,6 +30,9 @@ export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ app, plugin })
     const [activeWeekDate, setActiveWeekDate] = useState<string>(plugin.settings.activeWeekDate || "current");
     const [scenarios, setScenarios] = useState<string[]>([]);
     const [isSettingsHovered, setIsSettingsHovered] = useState(false);
+    const [viewMode, setViewMode] = useState<"list" | "map">("map");
+    const [activeTab, setActiveTab] = useState<"spending" | "analytics">("spending");
+    const [expandedExperiences, setExpandedExperiences] = useState(false);
 
     const loadData = async (currentEnv = env, currentScenario = activeScenario, currentWeekDate = activeWeekDate) => {
         setLoading(true);
@@ -32,14 +45,16 @@ export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ app, plugin })
             activeWeekDate: currentWeekDate
         });
         const txs = await loadTransactions(app.vault, folderPath);
-        const config = await loadBudgetConfig(app.vault);
+        setAllTransactions(txs);
+        const cfg = await loadBudgetConfig(app.vault);
+        setConfig(cfg);
 
         let targetDate = new Date();
         if (currentWeekDate && currentWeekDate !== "current") {
             targetDate = new Date(currentWeekDate + "T00:00:00");
         }
 
-        const snap = buildWeeklySnapshot(txs, config, targetDate);
+        const snap = buildWeeklySnapshot(txs, cfg, targetDate);
         setSnapshot(snap);
         setLoading(false);
     };
@@ -123,7 +138,7 @@ export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ app, plugin })
     }
 
     return (
-        <div className="budget-dashboard-container" style={{ padding: 16, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
+        <div className="budget-dashboard-container" style={{ padding: 16, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", fontFamily: "var(--font-interface)" }}>
             {/* Header with Settings Toggle */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <div style={{ fontSize: "16px", fontWeight: "600", color: "var(--text-normal)" }}>Budget Tracker</div>
@@ -424,45 +439,354 @@ export const BudgetDashboard: React.FC<BudgetDashboardProps> = ({ app, plugin })
                         </div>
                     </div>
 
-                    <h4 style={{ margin: "12px 0 6px 0" }}>By Category</h4>
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0, flex: 1 }}>
-                        {snapshot.buckets
-                            .filter((b) => b.category !== "Deposits")
-                            .map((b) => (
-                                <li
-                                    key={b.category}
-                                    style={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        padding: "8px 0",
-                                        borderBottom: "1px solid var(--background-modifier-border)",
-                                    }}
-                                >
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <span style={{ fontWeight: "500" }}>{b.category}</span>
-                                        <span style={{ fontWeight: "bold", fontSize: "13px" }}>
-                                            ${b.total.toFixed(2)}
-                                            <span style={{ fontWeight: "normal", color: "var(--text-muted)", marginLeft: "4px" }}>
-                                                / ${(b.allocation + b.rolloverCushion).toFixed(2)}
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px", fontSize: "10px", color: "var(--text-muted)" }}>
-                                        <span>{b.count} transaction{b.count === 1 ? "" : "s"}</span>
-                                        {b.rolloverCushion !== 0 && (
-                                            <span style={{ 
-                                                color: b.rolloverCushion > 0 ? "var(--text-success)" : "#ede991",
-                                                fontWeight: "600"
+                    {/* Premium Segmented Tab Selector */}
+                    <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--background-modifier-border)", paddingBottom: "12px", marginBottom: "16px" }}>
+                        <button
+                            onClick={() => setActiveTab("spending")}
+                            style={{
+                                padding: "6px 16px",
+                                fontSize: "12px",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                background: activeTab === "spending" ? "var(--interactive-accent)" : "transparent",
+                                color: activeTab === "spending" ? "white" : "var(--text-muted)",
+                                fontWeight: "bold",
+                                transition: "all 0.2s ease"
+                            }}
+                        >
+                            Spending Tracker
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("analytics")}
+                            style={{
+                                padding: "6px 16px",
+                                fontSize: "12px",
+                                border: "none",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                                background: activeTab === "analytics" ? "var(--interactive-accent)" : "transparent",
+                                color: activeTab === "analytics" ? "white" : "var(--text-muted)",
+                                fontWeight: "bold",
+                                transition: "all 0.2s ease"
+                            }}
+                        >
+                            Analytics & Tuning
+                        </button>
+                    </div>
+                    
+                    {activeTab === "spending" ? (
+                        <>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 0 12px 0" }}>
+                                <h4 style={{ margin: 0 }}>By Category</h4>
+                                <div style={{ display: "flex", gap: "4px", background: "var(--background-primary-alt)", padding: "2px", borderRadius: "6px" }}>
+                                    <button 
+                                        onClick={() => setViewMode("list")} 
+                                        style={{ 
+                                            padding: "4px 12px", 
+                                            fontSize: "11px", 
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            background: viewMode === "list" ? "var(--interactive-accent)" : "transparent", 
+                                            color: viewMode === "list" ? "white" : "var(--text-muted)",
+                                            fontWeight: viewMode === "list" ? "bold" : "normal"
+                                        }}
+                                    >List</button>
+                                    <button 
+                                        onClick={() => setViewMode("map")} 
+                                        style={{ 
+                                            padding: "4px 12px", 
+                                            fontSize: "11px", 
+                                            border: "none",
+                                            borderRadius: "4px",
+                                            cursor: "pointer",
+                                            background: viewMode === "map" ? "var(--interactive-accent)" : "transparent", 
+                                            color: viewMode === "map" ? "white" : "var(--text-muted)",
+                                            fontWeight: viewMode === "map" ? "bold" : "normal"
+                                        }}
+                                    >Map</button>
+                                </div>
+                            </div>
+
+                            {viewMode === "list" ? (
+                                <ul style={{ listStyle: "none", padding: 0, margin: 0, flex: 1 }}>
+                                    {snapshot.buckets
+                                        .filter((b) => b.category !== "Deposits" && !(config?.buckets[b.category]?.is_savings))
+                                        .map((b) => (
+                                            <li
+                                                key={b.category}
+                                                onClick={() => {
+                                                    if (b.category === "Experiences") {
+                                                        setExpandedExperiences(!expandedExperiences);
+                                                    }
+                                                }}
+                                                style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    padding: "10px 0",
+                                                    borderBottom: "1px solid var(--background-modifier-border)",
+                                                    cursor: b.category === "Experiences" ? "pointer" : "default",
+                                                    transition: "background 0.2s ease",
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (b.category === "Experiences") {
+                                                        e.currentTarget.style.background = "var(--background-secondary-alt)";
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (b.category === "Experiences") {
+                                                        e.currentTarget.style.background = "transparent";
+                                                    }
+                                                }}
+                                            >
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <span style={{ fontWeight: "500", display: "flex", alignItems: "center", gap: "6px" }}>
+                                                        {b.category}
+                                                        {b.category === "Experiences" && (
+                                                            <span style={{ 
+                                                                fontSize: "8px", 
+                                                                opacity: 0.5, 
+                                                                transition: "transform 0.2s ease", 
+                                                                transform: expandedExperiences ? "rotate(90deg)" : "rotate(0deg)",
+                                                                display: "inline-block"
+                                                            }}>▶</span>
+                                                        )}
+                                                    </span>
+                                                    <span style={{ fontWeight: "bold", fontSize: "13px" }}>
+                                                        ${b.total.toFixed(2)}
+                                                        <span style={{ fontWeight: "normal", color: "var(--text-muted)", marginLeft: "4px" }}>
+                                                            / ${(b.allocation + b.rolloverCushion).toFixed(2)}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px", fontSize: "10px", color: "var(--text-muted)" }}>
+                                                    <span>{b.count} transaction{b.count === 1 ? "" : "s"}</span>
+                                                    {b.rolloverCushion !== 0 && (
+                                                        <span style={{ 
+                                                            color: b.rolloverCushion > 0 ? "var(--text-success)" : "#ede991",
+                                                            fontWeight: "600"
+                                                        }}>
+                                                            {b.rolloverCushion > 0 
+                                                                ? `+$${b.rolloverCushion.toFixed(2)} rollover` 
+                                                                : `-$${Math.abs(b.rolloverCushion).toFixed(2)} deficit carryover`}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Expandable sub-tags for Experiences */}
+                                                {b.category === "Experiences" && expandedExperiences && (
+                                                    <div style={{
+                                                        marginTop: 10,
+                                                        padding: "10px 12px",
+                                                        background: "var(--background-primary)",
+                                                        border: "1px solid var(--background-modifier-border)",
+                                                        borderRadius: 8,
+                                                        boxShadow: "inset 0 1px 3px rgba(0,0,0,0.2)",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: 8
+                                                    }}>
+                                                        <div style={{ fontSize: 9, fontWeight: "bold", textTransform: "uppercase", opacity: 0.6, letterSpacing: "0.03em" }}>
+                                                            Sub-Category Breakdown (#tags)
+                                                        </div>
+                                                        {(() => {
+                                                            const breakdown = getExperiencesSubTagBreakdown(b.transactions, config || undefined);
+                                                            return breakdown.map((item) => (
+                                                                <div key={item.tag} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                                                                        <span style={{ fontWeight: 500 }}>{item.tag}</span>
+                                                                        <span style={{ fontWeight: "bold" }}>
+                                                                            ${item.total.toFixed(2)}
+                                                                            <span style={{ color: "var(--text-muted)", marginLeft: 4, fontWeight: "normal" }}>
+                                                                                ({item.percentage}%)
+                                                                            </span>
+                                                                        </span>
+                                                                    </div>
+                                                                    {/* Progress bar container */}
+                                                                    <div style={{ height: 4, background: "var(--background-secondary)", borderRadius: 2, overflow: "hidden" }}>
+                                                                        <div style={{
+                                                                            height: "100%",
+                                                                            width: `${item.percentage}%`,
+                                                                            background: item.tag === "World Cup" 
+                                                                                ? "linear-gradient(90deg, #42a5f5, #29b6f6)"
+                                                                                : item.tag === "Za & Wraps"
+                                                                                ? "linear-gradient(90deg, #66bb6a, #9ccc65)"
+                                                                                : item.tag === "Raves & Music"
+                                                                                ? "linear-gradient(90deg, #ab47bc, #ec407a)"
+                                                                                : "linear-gradient(90deg, var(--text-muted), #90a4ae)",
+                                                                            borderRadius: 2
+                                                                        }} />
+                                                                    </div>
+                                                                </div>
+                                                            ));
+                                                        })()}
+                                                    </div>
+                                                )}
+                                            </li>
+                                        ))}
+                                </ul>
+                            ) : (
+                                <div style={{ flex: 1, marginTop: "12px", display: "flex", flexDirection: "column" }}>
+                                    <SolarSystemMap snapshot={snapshot} config={config} />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        /* Analytics & Recommendations Tab */
+                        <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "12px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <h4 style={{ margin: 0 }}>Habits & Recommendations</h4>
+                                <span style={{ fontSize: "10px", color: "var(--text-muted)", background: "var(--background-secondary)", padding: "2px 8px", borderRadius: "10px" }}>
+                                    4-Week Horizon
+                                </span>
+                            </div>
+
+                            {/* Recommendations Glowing Box */}
+                            {(() => {
+                                const analytics = calculateSpendingAnalytics(allTransactions, config || undefined, 4);
+                                return (
+                                    <>
+                                        <div style={{
+                                            background: "linear-gradient(135deg, rgba(var(--interactive-accent-rgb), 0.08) 0%, rgba(var(--background-secondary-alt-rgb), 0.15) 100%)",
+                                            border: "1px solid var(--interactive-accent)",
+                                            borderRadius: "10px",
+                                            padding: "16px",
+                                            boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "10px"
+                                        }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                                <span style={{ fontSize: "16px" }}>💡</span>
+                                                <span style={{ fontWeight: "bold", fontSize: "13px", color: "var(--text-accent)" }}>Smart Budget Tuning Insights</span>
+                                            </div>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                {analytics.recommendations.map((rec, i) => (
+                                                    <div 
+                                                        key={i} 
+                                                        style={{ 
+                                                            fontSize: "12px", 
+                                                            lineHeight: "1.4", 
+                                                            color: "var(--text-normal)",
+                                                            paddingLeft: "12px",
+                                                            borderLeft: "2px solid var(--interactive-accent)"
+                                                        }}
+                                                        dangerouslySetInnerHTML={{ 
+                                                            __html: rec
+                                                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                                                .replace(/⚠️/g, '<span style="color:#ede991">⚠️</span>')
+                                                                .replace(/🎉/g, '<span style="color:var(--text-success)">🎉</span>')
+                                                                .replace(/💡/g, '<span style="color:var(--text-accent)">💡</span>')
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Category Averages Section */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <h5 style={{ margin: "4px 0 8px 0", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
+                                                Multi-Week Spending Averages
+                                            </h5>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                {analytics.categoryAnalytics.map((item) => {
+                                                    const isOver = item.isOverBudget;
+                                                    const diffVal = Math.abs(item.difference);
+                                                    const diffPercentVal = Math.abs(item.differencePercent);
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={item.category}
+                                                            style={{
+                                                                background: "var(--background-secondary)",
+                                                                border: "1px solid var(--background-modifier-border)",
+                                                                borderRadius: "8px",
+                                                                padding: "12px",
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                alignItems: "center"
+                                                            }}
+                                                        >
+                                                            <div>
+                                                                <div style={{ fontWeight: "bold", fontSize: "13px" }}>{item.category}</div>
+                                                                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                                                                    Target: ${item.targetAllocation.toFixed(2)}/wk • {item.swipeFrequency.toFixed(1)} swipes/wk
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                                                                <div style={{ fontWeight: "600", fontSize: "13px" }}>
+                                                                    ${item.actualAverageSpend.toFixed(2)}/wk
+                                                                </div>
+                                                                <span style={{
+                                                                    fontSize: "9px",
+                                                                    fontWeight: "bold",
+                                                                    padding: "2px 6px",
+                                                                    borderRadius: "4px",
+                                                                    marginTop: "4px",
+                                                                    background: isOver ? "rgba(229, 101, 101, 0.12)" : "rgba(46, 125, 50, 0.12)",
+                                                                    color: isOver ? "#e56565" : "var(--text-success)",
+                                                                    border: isOver ? "1px solid rgba(229, 101, 101, 0.25)" : "1px solid rgba(46, 125, 50, 0.25)"
+                                                                }}>
+                                                                    {item.difference === 0 
+                                                                        ? "On Target" 
+                                                                        : `${isOver ? "+" : "-"}$${diffVal.toFixed(2)} (${diffPercentVal.toFixed(1)}%)`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Experiences sub-tags deep dive */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+                                            <h5 style={{ margin: "4px 0 8px 0", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-muted)" }}>
+                                                Experiences Deep-Dive Trends (#tags)
+                                            </h5>
+                                            <div style={{
+                                                background: "var(--background-secondary)",
+                                                border: "1px solid var(--background-modifier-border)",
+                                                borderRadius: "8px",
+                                                padding: "12px",
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: "10px"
                                             }}>
-                                                {b.rolloverCushion > 0 
-                                                    ? `+$${b.rolloverCushion.toFixed(2)} rollover` 
-                                                    : `-$${Math.abs(b.rolloverCushion).toFixed(2)} deficit carryover`}
-                                            </span>
-                                        )}
-                                    </div>
-                                </li>
-                            ))}
-                    </ul>
+                                                {analytics.experiencesBreakdown.map((item) => (
+                                                    <div key={item.tag} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                                                            <span style={{ fontWeight: 500 }}>{item.tag}</span>
+                                                            <span style={{ fontWeight: "bold" }}>
+                                                                ${item.total.toFixed(2)}
+                                                                <span style={{ color: "var(--text-muted)", marginLeft: "4px", fontWeight: "normal" }}>
+                                                                    ({item.percentage}%)
+                                                                </span>
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ height: "4px", background: "var(--background-primary)", borderRadius: "2px", overflow: "hidden" }}>
+                                                            <div style={{
+                                                                height: "100%",
+                                                                width: `${item.percentage}%`,
+                                                                background: item.tag === "World Cup" 
+                                                                    ? "linear-gradient(90deg, #42a5f5, #29b6f6)"
+                                                                    : item.tag === "Za & Wraps"
+                                                                    ? "linear-gradient(90deg, #66bb6a, #9ccc65)"
+                                                                    : item.tag === "Raves & Music"
+                                                                    ? "linear-gradient(90deg, #ab47bc, #ec407a)"
+                                                                    : "linear-gradient(90deg, var(--text-muted), #90a4ae)",
+                                                                borderRadius: "2px"
+                                                            }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    )}
 
                     <button
                         onClick={handleManualRefresh}

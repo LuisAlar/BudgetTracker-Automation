@@ -1,5 +1,5 @@
 import { Vault, TFile } from "obsidian";
-import { WeeklySnapshot, Transaction, BudgetPluginSettings } from "./models";
+import { WeeklySnapshot, Transaction, BudgetPluginSettings } from "../models";
 
 // ─── Configuration ───────────────────────────────────────────
 const PROD_DASHBOARD_PATH = "Dashboard/Current Weekly Spending.md";

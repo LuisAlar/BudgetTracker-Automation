@@ -1,23 +1,66 @@
 {
+  "weekly_income": 850.0,
   "initial_seed_balance": 1900.0,
-  "allocations": {
-    "Groceries": 125.0,
-    "Gas": 40.0,
-    "Subscriptions": 15.0,
-    "Experiences": 130.0,
-    "Strict Savings": 350.0
+  "buckets": {
+    "Groceries": {
+      "percentage": 14.70588,
+      "fixed_amount": null,
+      "is_savings": false
+    },
+    "Gas": {
+      "percentage": 4.70588,
+      "fixed_amount": null,
+      "is_savings": false
+    },
+    "Subscriptions": {
+      "percentage": null,
+      "fixed_amount": 15.0,
+      "is_savings": false
+    },
+    "Experiences": {
+      "percentage": 15.29412,
+      "fixed_amount": null,
+      "is_savings": false
+    },
+    "District Savings": {
+      "percentage": 41.17647,
+      "fixed_amount": null,
+      "is_savings": true
+    },
+    "Simulated Housing": {
+      "percentage": null,
+      "fixed_amount": 190.0,
+      "is_savings": false
+    }
   },
   "rollover_rules": {
     "Experiences": {
       "rollover_percent": 50,
-      "sweep_target": "Strict Savings",
-      "sweep_percent": 50
+      "sweep_target": "District Savings",
+      "sweep_percent": 50,
+      "min_leftover_threshold": 10.0
     },
     "Gas": {
-      "rollover_percent": 100
+      "rollover_percent": 100,
+      "min_leftover_threshold": 5.0
     },
     "Groceries": {
-      "rollover_percent": 100
+      "rollover_percent": 100,
+      "min_leftover_threshold": 5.0
+    },
+    "District Savings": {
+      "rollover_percent": 0
+    },
+    "Simulated Housing": {
+      "rollover_percent": 0,
+      "sweep_target": "District Savings",
+      "sweep_percent": 100
     }
+  },
+  "experience_sub_tags": {
+    "World Cup": ["#worldcup", "#wc", "mexico", "game"],
+    "Za & Wraps": ["#za", "#hemp", "wraps", "smoke"],
+    "Raves & Music": ["#rave", "#music", "insomniac", "concert", "ticket"],
+    "Dining Out & Spontaneous": []
   }
 }
